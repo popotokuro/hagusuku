@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>しゅくだいポイント</title>
+<style>
+:root{--bg:#fff7e0;--card:#fff;--ink:#3a2e1f;--sub:#8a7a62;--main:#ff7a3d;--mint:#2bb88a;--line:#f0e2bd;--star:#ffc21a;--red:#d9534f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#241c12;--card:#352a1b;--ink:#fff1d6;--sub:#b9a784;--line:#4a3b25;--main:#ff8f57;--mint:#4fd1a5}}
+:root[data-theme="dark"]{--bg:#241c12;--card:#352a1b;--ink:#fff1d6;--sub:#b9a784;--line:#4a3b25;--main:#ff8f57;--mint:#4fd1a5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Maru Gothic ProN","Zen Maru Gothic","Yu Gothic",sans-serif;line-height:1.5}
+main{max-width:520px;margin:0 auto;padding:16px}
+.hero{background:var(--main);color:#fff;border-radius:28px;padding:22px;text-align:center;box-shadow:0 6px 0 rgba(0,0,0,.15)}
+.hero small{font-size:14px;opacity:.9}
+.pts{font-size:64px;font-weight:900;line-height:1.1}.pts span{font-size:22px;margin-left:4px}
+.hero.pop{animation:pop .5s}
+@keyframes pop{30%{transform:scale(1.06) rotate(-1deg)}}
+@media (prefers-reduced-motion:reduce){.hero.pop{animation:none}}
+h2{font-size:18px;margin:26px 4px 10px}
+.item{display:flex;align-items:center;gap:10px;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px 14px;margin-bottom:8px}
+.item .t{flex:1;font-weight:700}.item .p{font-size:13px;color:var(--sub);font-weight:400}
+.item.done .t{text-decoration:line-through;color:var(--sub)}
+button{font:inherit;cursor:pointer;border:0}
+.chk{width:44px;height:44px;border-radius:50%;border:3px solid var(--mint);background:transparent;color:#fff;font-size:22px;flex:none}
+.done .chk{background:var(--mint)}
+.x{background:transparent;color:var(--sub);font-size:18px;padding:6px}
+.x.warn{color:#fff;background:var(--red);border-radius:10px;font-size:13px}
+.btn{background:var(--mint);color:#fff;font-weight:700;border-radius:14px;padding:10px 14px}
+.btn:disabled{background:var(--line);color:var(--sub);cursor:not-allowed}
+.btn.warn{background:var(--red)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input{font:inherit;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:12px;padding:10px;min-width:0}
+input.name{flex:1 1 140px}input.num{width:84px}
+:focus-visible{outline:3px solid var(--star);outline-offset:2px}
+.today{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px 14px;margin-bottom:10px}
+.today .top{display:flex;justify-content:space-between;font-weight:700}
+.bar{height:12px;background:var(--line);border-radius:99px;overflow:hidden;margin:8px 0 4px}
+.bar i{display:block;height:100%;background:var(--mint);border-radius:99px;transition:width .3s}
+.today .s,.note{font-size:13px;color:var(--sub)}
+.empty{color:var(--sub);text-align:center;padding:14px}
+.log{font-size:13px;color:var(--sub);padding:4px 8px;display:flex;justify-content:space-between}
+.link{display:block;text-align:center;margin:26px auto 6px;color:var(--sub);font-size:14px}
+.bar-top{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px 14px;font-weight:700}
+.err{color:var(--red);font-size:14px;margin:6px 4px}
+.panel{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px;text-align:center}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+const KEY='hwpoints-v1';
+const def=()=>({total:0,name:'',pin:'',bonus:0,bonusPts:5,day:new Date().toDateString(),log:[],
+ tasks:[{id:1,name:'算数ドリル',pts:10,done:false},{id:2,name:'漢字の練習',pts:10,done:false},{id:3,name:'音読',pts:5,done:false}],
+ rewards:[{id:1,name:'おやつ',pts:30},{id:2,name:'ゲーム30分',pts:50}]});
+let S=load(),editing=null,arm=null,unlocked=false,msg='',popNext=false;
+function load(){let d=def();try{const r=localStorage.getItem(KEY);if(r)d=Object.assign(d,JSON.parse(r))}catch(e){}
+ if(d.bonus===true)d.bonus=5;if(d.bonus===false)d.bonus=0;return d}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+if(S.day!==new Date().toDateString()){S.tasks.forEach(t=>t.done=false);S.bonus=0;S.day=new Date().toDateString();save()}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const who=()=>S.name?esc(S.name)+'さんのポイント ⭐':'いまのポイント ⭐';
+function addLog(text,pts){S.log.unshift({text,pts,time:new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})});S.log=S.log.slice(0,30)}
+function bonusCheck(){const all=S.tasks.length>0&&S.tasks.every(t=>t.done);
+ if(all&&!S.bonus){S.bonus=S.bonusPts;S.total+=S.bonus;addLog('ぜんぶできたボーナス🎉',S.bonus)}
+ else if(!all&&S.bonus){S.total=Math.max(0,S.total-S.bonus);addLog('ボーナスとりけし',-S.bonus);S.bonus=0}}
+function twice(key,fn){if(arm===key){arm=null;fn()}else{arm=key;setTimeout(()=>{if(arm===key){arm=null;render()}},3000)}render()}
+const isAdmin=()=>location.hash==='#admin';
+const logHTML=()=>S.log.length?S.log.map(l=>`<div class="log"><span>${l.time} ${esc(l.text)}</span><b>${l.pts>0?'+':''}${l.pts}pt</b></div>`).join(''):'<div class="empty">まだきろくはありません</div>';
+function editForm(o,k){return `<div class="item"><input class="name" id="en" value="${esc(o.name)}" maxlength="30" aria-label="なまえ"><input class="num" id="ep" type="number" min="1" value="${o.pts}" aria-label="ポイント"><button class="btn" data-a="save" data-k="${k}">ほぞん</button><button class="x" data-a="cancel" aria-label="やめる">✕</button></div>`}
+function adminList(k){const L=k==='t'?S.tasks:S.rewards;
+ return (L.length?L.map(o=>editing&&editing.k===k&&editing.id===o.id?editForm(o,k):`<div class="item"><div class="t">${esc(o.name)}<div class="p">${k==='t'?'+':''}${o.pts}pt</div></div><button class="x" data-a="edit" data-k="${k}" data-id="${o.id}" aria-label="へんしゅう">✏️</button><button class="x ${arm==='d'+k+o.id?'warn':''}" data-a="del" data-k="${k}" data-id="${o.id}" aria-label="けす">${arm==='d'+k+o.id?'ほんとに？':'✕'}</button></div>`).join(''):'<div class="empty">まだありません</div>')
+ +`<div class="row"><input class="name" id="n${k}" placeholder="${k==='t'?'例：算数ドリル':'例：ゲーム30分'}" maxlength="30"><input class="num" id="p${k}" type="number" min="1" value="${k==='t'?10:50}" aria-label="ポイント"><button class="btn" data-a="add" data-k="${k}">ついか</button></div>`}
+function childHTML(){
+ const n=S.tasks.length,dn=S.tasks.filter(t=>t.done).length,earned=S.tasks.filter(t=>t.done).reduce((a,t)=>a+t.pts,0)+S.bonus;
+ const h=`<div class="row" style="margin-bottom:10px"><input class="name" id="uname" placeholder="なまえをいれてね ✏️" maxlength="12" aria-label="なまえ" value="${esc(S.name)}"></div>
+ <div class="hero ${popNext?'pop':''}"><small id="who">${who()}</small><div class="pts"><b>${S.total}</b><span>pt</span></div></div>
+ <h2>📚 きょうのしゅくだい</h2>
+ <div class="today"><div class="top"><span>${dn}/${n} できた</span><span>きょう +${earned}pt</span></div><div class="bar"><i style="width:${n?dn/n*100:0}%"></i></div><div class="s">${n&&dn===n?'🎉 ぜんぶできた！ボーナス +'+S.bonus+'pt':'ぜんぶできたらボーナス +'+S.bonusPts+'pt'}</div></div>
+ ${n?S.tasks.map(t=>`<div class="item ${t.done?'done':''}"><button class="chk" data-a="toggle" data-id="${t.id}" aria-label="できた">${t.done?'✓':''}</button><div class="t">${esc(t.name)}<div class="p">+${t.pts}pt</div></div></div>`).join(''):'<div class="empty">しゅくだいはまだありません</div>'}
+ <h2>🎁 ごほうび</h2>
+ ${S.rewards.length?S.rewards.map(r=>`<div class="item"><div class="t">${esc(r.name)}<div class="p">${r.pts}pt</div></div><button class="btn" data-a="exch" data-id="${r.id}" ${S.total<r.pts?'disabled':''}>${arm==='x'+r.id?'ほんとに？':'こうかん'}</button></div>`).join(''):'<div class="empty">ごほうびはまだありません</div>'}
+ <h2>📝 きろく</h2>${logHTML()}
+ <a class="link" href="#admin">🔒 おとなの画面</a>`;
+ popNext=false;return h}
+function adminHTML(){
+ if(!unlocked){const set=!S.pin;
+  return `<div class="bar-top"><span>🔒 おとなの画面</span><a href="#">こどもの画面へ</a></div>
+  <h2>${set?'はじめに あんしょうばんごうを決めよう':'あんしょうばんごうを入れてね'}</h2>
+  <div class="panel"><p class="note">${set?'数字4けたを決めてください。こどもに教えないでね。':'数字4けた'}</p>
+  <div class="row" style="justify-content:center"><input id="pin" type="password" inputmode="numeric" maxlength="4" style="width:130px;text-align:center;font-size:22px" aria-label="あんしょうばんごう"><button class="btn" data-a="${set?'setpin':'unlock'}">${set?'きめる':'ひらく'}</button></div>
+  ${msg?`<div class="err">${msg}</div>`:''}</div>`}
+ return `<div class="bar-top"><span>🔧 おとなの画面</span><a href="#">こどもの画面へ</a></div>
+ <p class="note" style="margin:8px 4px">いまのポイント：<b>${S.total}pt</b>　しゅくだいとごほうびは、ここだけで追加・へんしゅうできます。</p>
+ <h2>📚 しゅくだい</h2>${adminList('t')}
+ <h2>🎁 ごほうび</h2>${adminList('r')}
+ <h2>🎉 ボーナス</h2>
+ <div class="row"><span style="align-self:center">ぜんぶできた日のボーナス</span><input class="num" id="bpts" type="number" min="0" value="${S.bonusPts}" aria-label="ボーナス"><button class="btn" data-a="bonus">ほぞん</button></div>
+ <h2>🛠 ほかの設定</h2>
+ <div class="row">
+  <button class="btn ${arm==='clog'?'warn':''}" data-a="clog">${arm==='clog'?'もういちどおすと消えます':'きろくだけリセット'}</button>
+  <button class="btn ${arm==='reset'?'warn':''}" data-a="reset">${arm==='reset'?'もういちどおすとぜんぶ消えます':'ぜんぶリセット'}</button>
+  <button class="btn" data-a="chpin">あんしょうばんごうを変える</button></div>
+ ${msg?`<div class="err" style="color:var(--mint)">${msg}</div>`:''}
+ <h2>📝 きろく</h2>${logHTML()}`}
+function render(){
+ const keep={};document.querySelectorAll('#app input').forEach(i=>{if(i.id)keep[i.id]=i.value});
+ const foc=document.activeElement&&document.activeElement.id;
+ $('app').innerHTML=isAdmin()?adminHTML():childHTML();
+ for(const id in keep){const i=$(id);if(i&&!/^(en|ep)$/.test(id)||(i&&editing))i.value=keep[id]}
+ if(foc&&$(foc)&&$(foc).tagName==='INPUT')$(foc).focus();
+ save()}
+$('app').oninput=e=>{if(e.target.id==='uname'){S.name=e.target.value.trim();save();$('who').innerHTML=who()}};
+$('app').onclick=e=>{const b=e.target.closest('[data-a]');if(!b)return;
+ const a=b.dataset.a,id=+b.dataset.id,k=b.dataset.k,L=k==='t'?S.tasks:S.rewards;msg='';
+ if(a==='toggle'){const t=S.tasks.find(x=>x.id===id);
+  if(t.done){t.done=false;S.total=Math.max(0,S.total-t.pts);addLog(t.name+' をとりけし',-t.pts)}
+  else{t.done=true;S.total+=t.pts;addLog(t.name+' できた！',t.pts);popNext=true}
+  bonusCheck();render()}
+ else if(a==='exch'){const r=S.rewards.find(x=>x.id===id);if(S.total>=r.pts)twice('x'+id,()=>{S.total-=r.pts;addLog(r.name+' とこうかん',-r.pts);render()})}
+ else if(a==='setpin'||a==='unlock'){const v=$('pin').value;
+  if(a==='setpin'){if(/^\d{4}$/.test(v)){S.pin=v;unlocked=true}else msg='数字4けたで入れてね'}
+  else{if(v===S.pin)unlocked=true;else msg='あんしょうばんごうがちがいます'}
+  render()}
+ else if(a==='chpin'){S.pin='';unlocked=false;render()}
+ else if(a==='add'){const n=$('n'+k).value.trim(),p=parseInt($('p'+k).value);
+  if(n&&p>0){L.push(k==='t'?{id:Date.now(),name:n,pts:p,done:false}:{id:Date.now(),name:n,pts:p});$('n'+k).value=''}render()}
+ else if(a==='edit'){editing={k,id};render()}
+ else if(a==='cancel'){editing=null;render()}
+ else if(a==='save'){const n=$('en').value.trim(),p=parseInt($('ep').value);
+  if(n&&p>0){const o=L.find(x=>x.id===editing.id);if(o.done)S.total=Math.max(0,S.total+p-o.pts);o.name=n;o.pts=p;editing=null}render()}
+ else if(a==='del')twice('d'+k+id,()=>{if(k==='t')S.tasks=S.tasks.filter(x=>x.id!==id);else S.rewards=S.rewards.filter(x=>x.id!==id);render()});
+ else if(a==='bonus'){const p=parseInt($('bpts').value);if(p>=0){S.bonusPts=p;msg='ほぞんしました'}render()}
+ else if(a==='clog')twice('clog',()=>{S.log=[];render()});
+ else if(a==='reset')twice('reset',()=>{const pin=S.pin;S=def();S.pin=pin;render()});
+};
+window.onhashchange=()=>{unlocked=false;editing=null;arm=null;msg='';render()};
+render();
+</script>
+</body>
+</html>
