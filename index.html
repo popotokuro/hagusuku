@@ -50,11 +50,11 @@ input.name{flex:1 1 140px}input.num{width:84px}
 <main id="app"></main>
 <script>
 const KEY='hwpoints-v1';
-const def=()=>({total:0,name:'',pin:'',bonus:0,bonusPts:5,day:new Date().toDateString(),log:[],
- tasks:[{id:1,name:'算数ドリル',pts:10,done:false},{id:2,name:'漢字の練習',pts:10,done:false},{id:3,name:'音読',pts:5,done:false}],
- rewards:[{id:1,name:'おやつ',pts:30},{id:2,name:'ゲーム30分',pts:50}]});
+const def=()=>({ver:2,total:0,name:'',pin:'',bonus:0,bonusPts:5,day:new Date().toDateString(),log:[],
+ tasks:[{id:1,name:'準備1',pts:10,done:false},{id:2,name:'準備2',pts:10,done:false},{id:3,name:'パフォーマンス',pts:10,done:false},{id:4,name:'水風船',pts:10,done:false},{id:5,name:'五行',pts:10,done:false},{id:6,name:'感染',pts:10,done:false}],
+ rewards:[{id:1,name:'アイス',pts:60},{id:2,name:'ドーナツ',pts:60}]});
 let S=load(),editing=null,arm=null,unlocked=false,msg='',popNext=false;
-function load(){let d=def();try{const r=localStorage.getItem(KEY);if(r)d=Object.assign(d,JSON.parse(r))}catch(e){}
+function load(){let d=def();try{const r=localStorage.getItem(KEY);if(r){const sv=JSON.parse(r);d=Object.assign(d,sv);if(!sv.ver){d.tasks=def().tasks;d.rewards=def().rewards}}}catch(e){}
  if(d.bonus===true)d.bonus=5;if(d.bonus===false)d.bonus=0;return d}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 if(S.day!==new Date().toDateString()){S.tasks.forEach(t=>t.done=false);S.bonus=0;S.day=new Date().toDateString();save()}
